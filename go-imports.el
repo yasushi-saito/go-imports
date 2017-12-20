@@ -1,4 +1,10 @@
-;;; -*- lexical-binding: t -*-
+;;; go-imports.el --- Insert go import statement given package name
+;;
+;; Author: Yaz Saito
+;; URL: https://github.com/yasushi-saito/go-imports
+;; Keywords: go, import
+;; Version: 20171219.1
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (require 'thingatpt)
 
@@ -91,3 +97,6 @@ while(my($k, $v) = each %PACKAGES) {
                           perl-script))))
 
 (provide 'go-imports)
+
+;;; -*- lexical-binding: t -*-
+;;; go-imports.el ends here
