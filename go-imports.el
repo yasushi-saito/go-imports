@@ -54,88 +54,10 @@ to its package name (e.g., \"template\").")
 (defvar go-imports-packages-list nil
   "List of package names.")
 
-(defvar go-imports-perl-script
-  "use warnings;
-use strict;
-sub go_package_name {
-    my ($path) = @_;
-    unless (open(IN, $path)) {
-        warn \"open $: $.\";
-        return ''
-    }
-    my $package;
-    while (<IN>) {
-        if (/^package (\\S+)/) {
-            $package = $1;
-            last
-        }
-    }
-    close(IN);
-    return $package;
-}
-sub has_prefix {
-    my ($str, $prefix) = @_;
-    return (substr($str, 0, length($prefix)) eq $prefix);
-}
-sub visit_dir {
-    my ($dir, $packages, $visited) = @_;
-    my ($dev, $ino) = stat($dir);
-    my ($dev_ino) = \"$dev/$ino\";
-    if (defined $visited->{$dev_ino}) {
-        return
-    }
-    $visited->{$dev_ino} = 1;
-    unless (opendir(DIR, $dir)) {
-        warn \"opendir $dir: $.\\n\";
-        return
-    }
-    my @filenames = readdir(DIR);
-    closedir(DIR);
-    my $package = '';
-    foreach my $filename (@filenames) {
-        if (has_prefix($filename, \".\") or has_prefix($filename, \"bazel-\")) {
-            next;
-        }
-        my $path = \"$dir/$filename\";
-        if (-d $path) {
-            visit_dir($path, $packages, $visited);
-            next
-        }
-        if ($path !~ /\\.go$/) {
-            next
-        }
-        my $p = go_package_name($path);
-        if ($p !~ /test$/ and $p ne '') {
-            $package = $p;
-            last
-        }
-    }
-    if ($package ne '' and $package ne 'main' and $package ne 'p') {
-        $packages->{$dir} = $package;
-    }
-}
-warn \"ARGV: @ARGV\\n\";
-for my $root (@ARGV) {
-    my ($packages, $visited) = ({}, {});
-    visit_dir(\"$root/src\", $packages, $visited);
-    while (my($dir, $name) = each %$packages) {
-        my $path = $dir;
-        if ($dir =~ m!/vendor/(.*)!) {
-            $path = $1;
-        } else {
-            for my $root (@ARGV) {
-                my $root_prefix = \"$root/src/\";
-                if (has_prefix($dir, $root_prefix)) {
-                    $path = substr($dir, length($root_prefix));
-                    last
-                }
-            }
-        }
-        print \"(go-imports-define-package \\\"$name\\\" \\\"$path\\\")\\n\"
-    }
-}
-"
-  "A perl script that finds package definitions in *.go files under the given directories")
+(defconst go-imports-find-packages-pl-path
+  (concat (file-name-directory (or load-file-name buffer-file-name))
+          "find-packages.pl")
+  "Name of the Perl script that extracts package names from *.go files")
 
 (defun go-imports-maybe-update-packages-list()
   (if (= (hash-table-count go-imports-packages-hash) 0)
@@ -148,6 +70,7 @@ for my $root (@ARGV) {
                (cons (getenv "GOROOT") (split-string (getenv "GOPATH") ":" t))))
           (insert-file-contents packages-path)
           (eval-buffer)
+          (message "Updated %s" packages-path)
           ))))
 
 (defun go-imports-define-package(package path)
@@ -187,8 +110,8 @@ files are modified.  Call go-imports-reload-packages-list to
 reload the mappings."
   (interactive
    (list (let ((c (thing-at-point 'word)))
-           (ido-completing-read "Package: " go-imports-packages-list
-                                nil t nil 'go-imports-package-history))))
+           (completing-read "Package: " go-imports-packages-list
+                            nil t nil 'go-imports-package-history))))
   (go-imports-maybe-update-packages-list)
   (let ((paths (gethash ;(prin1-to-string package)
                 package
@@ -199,8 +122,8 @@ reload the mappings."
      ((= (length paths) 1)
       (go-import-add nil (car paths)))
      (t
-      (let ((path (ido-completing-read "Path: " paths
-                                       nil nil nil 'go-imports-path-history)))
+      (let ((path (completing-read "Path: " paths
+                                   nil nil nil 'go-imports-path-history)))
         (go-import-add nil path))))))
 
 (defun go-imports-list-packages(packages-file root-dirs)
@@ -208,15 +131,9 @@ reload the mappings."
 go-imports-define-package statements in PACKAGES-FILE.  ROOT-DIRS
 is a list of directory names. Existing contents of PACKAGES-FILE
 are overwritten."
-  (let* ((tmp-perl-file (concat (make-temp-file "go-imports") ".pl")))
-    (unwind-protect
-        (progn
-          (with-temp-file tmp-perl-file
-            (insert go-imports-perl-script))
-          (apply #'call-process
-                 "perl" nil `((:file ,packages-file) ,(concat packages-file "-errors")) nil
-                 tmp-perl-file (remove nil root-dirs)))
-      (delete-file tmp-perl-file))))
+  (apply #'call-process
+         "perl" nil `((:file ,packages-file) ,(concat packages-file "-errors"))
+         nil go-imports-find-packages-pl-path (remove nil root-dirs)))
 
 (provide 'go-imports)
 
