@@ -3,7 +3,7 @@
 ;; Author: Yaz Saito
 ;; URL: https://github.com/yasushi-saito/go-imports
 ;; Keywords: tools, go, import
-;; Version: 20171219.1
+;; Version: 20180107.1
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; Commentary:
