@@ -59,6 +59,11 @@ to its package name (e.g., \"template\").")
           "find-packages.pl")
   "Name of the Perl script that extracts package names from *.go files")
 
+(defun go-imports-go-root()
+  "Get the value of GOROOT"
+  (let ((s (shell-command-to-string "go env GOROOT")))
+    (substring s 0 (1- (length s)))))
+
 (defun go-imports-maybe-update-packages-list()
   (if (= (hash-table-count go-imports-packages-hash) 0)
       (with-temp-buffer
@@ -67,7 +72,8 @@ to its package name (e.g., \"template\").")
           (if (not (file-exists-p packages-path))
               (go-imports-list-packages
                packages-path
-               (cons (getenv "GOROOT") (split-string (getenv "GOPATH") ":" t))))
+               (cons (go-imports-go-root)
+                     (split-string (getenv "GOPATH") ":" t))))
           (insert-file-contents packages-path)
           (eval-buffer)
           (message "Updated %s" packages-path)
