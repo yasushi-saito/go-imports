@@ -3,7 +3,7 @@
 ;; Author: Yaz Saito
 ;; URL: https://github.com/yasushi-saito/go-imports
 ;; Keywords: tools, go, import
-;; Version: 20180107.1
+;; Version: 20180325.1
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; Commentary:
@@ -59,6 +59,12 @@ to its package name (e.g., \"template\").")
           "find-packages.pl")
   "Name of the Perl script that extracts package names from *.go files")
 
+(defcustom go-imports-ignore-package-regexp ""
+  "If nonempty, specifies a regexp that causes matching packages to be dropped.")
+
+(defcustom go-imports-ignore-path-regexp ""
+  "If nonempty, specifies a regexp that causes packages with matching paths to be dropped.")
+
 (defun go-imports-go-root()
   "Get the value of GOROOT"
   (let ((s (shell-command-to-string "go env GOROOT")))
@@ -81,11 +87,15 @@ to its package name (e.g., \"template\").")
 
 (defun go-imports-define-package(package path)
   "Internal function that defines a package-name to package-path mapping."
-  (let ((v (gethash package go-imports-packages-hash)))
-    (when (not (member path v))
-      (puthash package (cons path v) go-imports-packages-hash)
-      (add-to-list 'go-imports-packages-list package)
-      )))
+  (unless (or
+           (and (not(string= go-imports-ignore-package-regexp ""))
+                (string-match-p go-imports-ignore-package-regexp package))
+           (and (not(string= go-imports-ignore-path-regexp ""))
+                (string-match-p go-imports-ignore-path-regexp path)))
+    (let ((v (gethash package go-imports-packages-hash)))
+      (when (not (member path v))
+        (puthash package (cons path v) go-imports-packages-hash)
+        (add-to-list 'go-imports-packages-list package)))))
 
 ;;;###autoload
 (defun go-imports-reload-packages-list()
