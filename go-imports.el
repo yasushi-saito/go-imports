@@ -44,7 +44,7 @@
 
 (defun go-imports-packages-path()
   "Returns the name of the file that checkpoints the package name list."
-  (let ((gopath (car (split-string (getenv "GOPATH") ":" t))))
+  (let ((gopath (car (split-string (go-imports-go-path) ":" t))))
     (concat (file-name-as-directory gopath) ".go-imports-packages.el")))
 
 (defvar go-imports-packages-hash (make-hash-table :test #'equal)
@@ -70,6 +70,11 @@ to its package name (e.g., \"template\").")
   (let ((s (shell-command-to-string "go env GOROOT")))
     (substring s 0 (1- (length s)))))
 
+(defun go-imports-go-path()
+  "Get the value of GOPATH"
+  (let ((s (shell-command-to-string "go env GOPATH")))
+    (substring s 0 (1- (length s)))))
+
 (defun go-imports-maybe-update-packages-list()
   (if (= (hash-table-count go-imports-packages-hash) 0)
       (with-temp-buffer
@@ -79,7 +84,7 @@ to its package name (e.g., \"template\").")
               (go-imports-list-packages
                packages-path
                (cons (go-imports-go-root)
-                     (split-string (getenv "GOPATH") ":" t))))
+                     (split-string (go-imports-go-path) ":" t))))
           (insert-file-contents packages-path)
           (eval-buffer)
           (message "Updated %s" packages-path)
