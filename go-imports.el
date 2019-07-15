@@ -44,8 +44,11 @@
 
 (defun go-imports-packages-path()
   "Returns the name of the file that checkpoints the package name list."
-  (let ((gopath (car (split-string (go-imports-go-path) ":" t))))
-    (concat (file-name-as-directory gopath) ".go-imports-packages.el")))
+  (let ((go-mod-path (locate-dominating-file default-directory "go.mod")))
+    (if go-mod-path
+        (concat (file-name-directory go-mod-path) ".go-imports-packages.el")
+      (let ((gopath (car (split-string (go-imports-go-path) ":" t))))
+        (concat (file-name-as-directory gopath) ".go-imports-packages.el")))))
 
 (defvar go-imports-packages-hash (make-hash-table :test #'equal)
   "Hash table that maps a package path (e.g., \"html/template\")
@@ -65,26 +68,13 @@ to its package name (e.g., \"template\").")
 (defcustom go-imports-ignore-path-regexp ""
   "If nonempty, specifies a regexp that causes packages with matching paths to be dropped.")
 
-(defun go-imports-go-root()
-  "Get the value of GOROOT"
-  (let ((s (shell-command-to-string "go env GOROOT")))
-    (substring s 0 (1- (length s)))))
-
-(defun go-imports-go-path()
-  "Get the value of GOPATH"
-  (let ((s (shell-command-to-string "go env GOPATH")))
-    (substring s 0 (1- (length s)))))
-
 (defun go-imports-maybe-update-packages-list()
   (if (= (hash-table-count go-imports-packages-hash) 0)
       (with-temp-buffer
         (setq go-imports-packages-list nil)
         (let ((packages-path (go-imports-packages-path)))
           (if (not (file-exists-p packages-path))
-              (go-imports-list-packages
-               packages-path
-               (cons (go-imports-go-root)
-                     (split-string (go-imports-go-path) ":" t))))
+              (go-imports-list-packages packages-path))
           (insert-file-contents packages-path)
           (eval-buffer)
           (message "Updated %s" packages-path)
@@ -147,14 +137,14 @@ reload the mappings."
                                    nil nil nil 'go-imports-path-history)))
         (go-import-add nil path))))))
 
-(defun go-imports-list-packages(packages-file root-dirs)
+(defun go-imports-list-packages(packages-file)
   "Discover *.go files under ROOT-DIRS and produce a list of
 go-imports-define-package statements in PACKAGES-FILE.  ROOT-DIRS
 is a list of directory names. Existing contents of PACKAGES-FILE
 are overwritten."
   (apply #'call-process
          "perl" nil `((:file ,packages-file) ,(concat packages-file "-errors"))
-         nil go-imports-find-packages-pl-path (remove nil root-dirs)))
+         nil (list go-imports-find-packages-pl-path)))
 
 (provide 'go-imports)
 
